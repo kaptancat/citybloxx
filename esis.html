@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="tr"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Grand City: Final Stabil Sürüm (V6.0)</title>
+    <style>
+        /* CSS Düzenlemeleri */
+        body { margin: 0; overflow: hidden; background: #111; font-family: 'Segoe UI', sans-serif; user-select: none; }
+        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; }
+        .active { display: flex; }
+        #dashboard { background: radial-gradient(circle at center, #2c3e50, #000); flex-direction: column; align-items: center; justify-content: flex-start; padding: 20px; color: white; overflow-y: auto; z-index: 10; } 
+        #dashHeader { text-align: center; margin-bottom: 20px; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; width: 90%; max-width: 500px; }
+        #cityName { font-size: 32px; font-weight: bold; color: #f1c40f; text-shadow: 0 2px 5px black; }
+        #cashDisplay { font-size: 20px; font-weight: bold; color: #34d934; margin-bottom: 15px; text-shadow: 1px 1px 2px #000; }
+        #cityStats { font-size: 18px; color: #2ecc71; margin-top: 5px; }
+        
+        /* Zaman ve Grid Konteynerı */
+        #cityContainer { width: 95%; max-width: 450px; }
+        #timeDisplay { 
+            background: #34495e; color: #fff; padding: 10px; border-radius: 8px; 
+            margin-bottom: 8px; text-align: center; font-size: 20px; font-weight: bold;
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        #grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; aspect-ratio: 1; margin-bottom: 20px; z-index: 10; }
+        .plot { background: #34495e; border: 2px dashed #555; border-radius: 8px; position: relative; cursor: pointer; overflow: hidden; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+        .plot.occupied { border-style: solid; border-color: #27ae60; background: #2c3e50; }
+        .roof-view { width: 60%; height: 60%; box-shadow: 4px 4px 10px rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.2); }
+        .plot-info { font-size: 10px; color: #fff; margin-top: 4px; text-align: center; z-index: 2; text-shadow: 1px 1px 1px black;}
+        .btn-danger { background: #c0392b; color: white; border: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; z-index: 10; }
+        .btn-danger.active { background: #e74c3c; box-shadow: 0 0 15px red; animation: pulse 0.5s infinite; }
+        .btn-reset { background: #7f8c8d; color: white; border: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; margin-top: 15px; z-index: 10;}
+        .btn-market { background: #f39c12; color: white; border: none; padding: 12px 25px; border-radius: 5px; font-weight: bold; margin-bottom: 15px; cursor: pointer; z-index: 10; }
+        
+        /* Mesaj Kutusu ve Butonlar */
+        #msgOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 99; }
+        #msgBox { background: white; padding: 30px; border-radius: 15px; text-align: center; border: 5px solid #3498db; max-width: 80%; }
+        #msgOptions { display: flex; justify-content: center; gap: 15px; margin-top: 15px; }
+        .msg-btn { padding: 15px 20px; font-size: 16px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        .btn-rent { background: #2ecc71; color: white; }
+        .btn-sell { background: #e74c3c; color: white; }
+        .btn-return { background: #3498db; color: white; }
+
+        /* Market Modal ve Sekmeler */
+        #marketModal { display: none; position: fixed; z-index: 101; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); justify-content: center; align-items: center; }
+        #marketContent { background-color: #fefefe; padding: 30px; border-radius: 10px; width: 80%; max-width: 450px; color: #333; text-align: left; }
+        .upgrade-item { border-bottom: 1px solid #ddd; padding: 10px 0; display: flex; justify-content: space-between; align-items: center; }
+        .upgrade-item button { background-color: #2ecc71; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .upgrade-item button:disabled { background-color: #aaa; cursor: not-allowed; }
+        #closeMarket { float: right; font-size: 28px; font-weight: bold; color: #c0392b; cursor: pointer; }
+        #marketTabs { display: flex; margin-bottom: 15px; border-bottom: 2px solid #ddd; }
+        .tab-btn { padding: 10px 15px; border: none; background: none; cursor: pointer; font-weight: bold; color: #777; transition: color 0.2s; }
+        .tab-btn.active { color: #3498db; border-bottom: 3px solid #3498db; margin-bottom: -2px; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Canlı Şehir Kanvası */
+        #cityCanvas { position: absolute; top: 0; left: 0; z-index: 0; }
+        
+        /* Diğer UI/Ses Kodları */
+        #settings { position: absolute; bottom: 10px; right: 10px; padding: 10px; background: rgba(0,0,0,0.5); border-radius: 8px; z-index: 100; color: white; display: flex; flex-direction: column; gap: 5px; font-size: 12px; }
+        #gameUI { position: absolute; top: 20px; left: 20px; color: white; text-shadow: 2px 2px 4px black; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+<canvas id="cityCanvas" width="1536" height="695"></canvas> 
+<div id="dashboard" class="screen active">
+    <div id="dashHeader">
+        <div id="cityName">Gelişen Şehir</div>
+        <div id="cashDisplay">💰 $1.700</div>
+        <div id="cityStats">Nüfus: 8 | Statü: Köy</div>
+    </div>
+    
+    <button class="btn-market" onclick="openMarket()">🛒 İnşaat Pazarı</button>
+
+    <div id="cityContainer">
+        <div id="timeDisplay">
+            <span id="monthName">AY: ŞUBAT</span> &nbsp; | &nbsp; 
+            <span id="timeCountdown">01:59</span>
+        </div>
+        <div id="grid"><div class="plot occupied">
+                    <div class="roof-view" style="background:#a09385; border-color:rgba(255,255,255,0.2)"></div>
+                    <div class="plot-info">5 Kat 🏠<br>8 Kişi (KİRADA)</div>
+                </div><div class="plot "><span style="font-size:30px; color:#555;">+</span></div><div class="plot "><span style="font-size:30px; color:#555;">+</span></div><div class="plot "><span style="font-size:30px; color:#555;">+</span></div><div class="plot "><span style="font-size:30px; color:#555;">+</span></div><div class="plot "><span style="font-size:30px; color:#555;">+</span></div><div class="plot "><span style="font-size:30px; color:#555;">+</span></div><div class="plot "><span style="font-size:30px; color:#555;">+</span></div><div class="plot "><span style="font-size:30px; color:#555;">+</span></div><div class="plot "><span style="font-size:30px; color:#555;">+</span></div><div class="plot "><span style="font-size:30px; color:#555;">+</span></div><div class="plot "><span style="font-size:30px; color:#555;">+</span></div><div class="plot "><span style="font-size:30px; color:#555;">+</span></div><div class="plot "><span style="font-size:30px; color:#555;">+</span></div><div class="plot "><span style="font-size:30px; color:#555;">+</span></div><div class="plot "><span style="font-size:30px; color:#555;">+</span></div></div>
+    </div>
+
+    <button class="btn-danger" id="btnDelete" onclick="toggleDelete()">🚧 Yıkım Modu</button>
+    <button class="btn-reset" onclick="resetGameData()">💣 Şehri Sıfırla</button> 
+    <p id="currentStyleInfo" style="font-size:12px; color:#aaa; margin-top:10px;">*Mevcut stiliniz: <b>Taş Ev</b></p>
+</div>
+
+<div id="marketModal" style="display: none;">
+    <div id="marketContent">
+        <span id="closeMarket" onclick="closeMarket()">×</span>
+        <h2>🏗️ İnşaat Pazarı</h2>
+        <p id="marketCash">Cebinizde: 💰 $0</p>
+        
+        <div id="marketTabs">
+            <button class="tab-btn active" onclick="changeMarketTab(&#39;crane-upgrades&#39;)">Vinç Yükseltmeleri</button>
+            <button class="tab-btn" onclick="changeMarketTab(&#39;style-upgrades&#39;)">Stil ve Dokular</button>
+        </div>
+
+        <div id="crane-upgrades" class="tab-content active">
+            <div id="upgradesList"><div class="upgrade-item">
+                <div>
+                    <strong>Hızlandırılmış Vinç Motoru</strong>
+                    <p style="margin:0; font-size:12px;">Seviye: 0/5</p>
+                </div>
+                <button disabled="" onclick="buyUpgrade(&#39;speed&#39;, 500)" style="background-color: #2ecc71; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; background-color: #aaa; cursor: not-allowed;">💰 $500</button>
+            </div><div class="upgrade-item">
+                <div>
+                    <strong>Lazer Destekli Kilitleme</strong>
+                    <p style="margin:0; font-size:12px;">Seviye: 0/3</p>
+                </div>
+                <button disabled="" onclick="buyUpgrade(&#39;accuracy&#39;, 1000)" style="background-color: #2ecc71; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; background-color: #aaa; cursor: not-allowed;">💰 $1.000</button>
+            </div></div>
+            <p style="font-size:12px; margin-top: 15px;">*Yükseltmeler vinç hızını ve hassasiyetini kalıcı olarak artırır.</p>
+        </div>
+
+        <div id="style-upgrades" class="tab-content">
+            <div id="stylesList"><div class="upgrade-item">
+                <div>
+                    <strong>Taş Ev</strong> 
+                    <span style="display:inline-block; width:10px; height:10px; background:#a09385; border:1px solid #333; margin-left:5px;"></span>
+                    <p style="margin:0; font-size:12px;">Kira Çarpanı: x1 | Nüfus Çarpanı: x1</p>
+                </div>
+                <button disabled="" style="background-color: #3498db; cursor: default;">AKTİF</button>
+            </div><div class="upgrade-item">
+                <div>
+                    <strong>Modern Apartman</strong> 
+                    <span style="display:inline-block; width:10px; height:10px; background:#3498db; border:1px solid #333; margin-left:5px;"></span>
+                    <p style="margin:0; font-size:12px;">Kira Çarpanı: x1.5 | Nüfus Çarpanı: x1.2</p>
+                </div>
+                <button disabled="" onclick="buyStyle(&#39;MODERN_APARTMENT&#39;, 5000)" style="background-color: #e74c3c; background-color: #aaa;">💰 $5.000</button>
+            </div><div class="upgrade-item">
+                <div>
+                    <strong>Cam Gökdelen</strong> 
+                    <span style="display:inline-block; width:10px; height:10px; background:#2ecc71; border:1px solid #333; margin-left:5px;"></span>
+                    <p style="margin:0; font-size:12px;">Kira Çarpanı: x2.5 | Nüfus Çarpanı: x1.5</p>
+                </div>
+                <button disabled="" onclick="buyStyle(&#39;SKYSCRAPER_GLASS&#39;, 25000)" style="background-color: #e74c3c; background-color: #aaa;">💰 $25.000</button>
+            </div></div>
+            <p style="font-size:12px; margin-top: 15px;">*Yeni stiller, binalarınızın kira ve satış değerlerini artırır.</p>
+        </div>
+    </div>
+</div>
+
+<div id="gameScreen" class="screen">
+    <canvas id="gameCanvas" width="1536" height="695"></canvas>
+    <div id="gameUI">
+        <div id="floorCount" style="font-size: 28px; font-weight: bold; color: #f1c40f;">Kat: 2</div>
+        <div id="popCount" style="font-size: 20px; color: #2ecc71;">Nüfus: +3</div>
+        <div id="comboText" style="font-size: 18px; color: #e67e22; font-weight: bold; margin-top: 5px;"></div>
+        <div id="weatherUI" style="font-size:14px; color:#ccc; margin-top:5px;">Hava: Açık</div>
+    </div>
+
+    <div id="settings">
+        <label>🔊 Oyun Sesi: <input type="range" min="0" max="100" value="70" id="gameVolume" oninput="updateVolume(&#39;game&#39;, this.value)" style="width: 100px; vertical-align: middle;"></label>
+        <label>🎶 Ortam Sesi: <input type="range" min="0" max="100" value="40" id="ambientVolume" oninput="updateVolume(&#39;ambient&#39;, this.value)" style="width: 100px; vertical-align: middle;"></label>
+    </div>
+
+    <div id="msgOverlay" style="display: flex;">
+        <div id="msgBox">
+            <h1 style="color:#2c3e50; margin:0;">İNŞAAT DURDU</h1>
+            <h2 id="endScore" style="color:#e67e22;">2 Kat</h2>
+            <p id="endPop" style="font-size:20px; font-weight:bold; color:#27ae60;">+3 Nüfus</p>
+
+            <div id="incomeInfo" style="margin-top: 20px; font-size: 14px;">
+            İnşaat Bitti! Bu binayı ne yapmak istersiniz?<br>
+            <strong style="color:#2ecc71;">Aylık Kira Geliri:</strong> 💰 200<br>
+            <strong style="color:#e74c3c;">Satış Geliri:</strong> Anında 💰 390
+        </div>
+
+            <div id="msgOptions">
+            <button class="msg-btn btn-rent" onclick="finalizeBuilding(&#39;RENTED&#39;, 200)">🏠 KİRALA</button>
+            <button class="msg-btn btn-sell" onclick="finalizeBuilding(&#39;SOLD&#39;, 390)">💰 SAT</button>
+            <button class="msg-btn btn-return" onclick="returnToCity()">ŞEHRE DÖN (İptal)</button>
+        </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- SABİT TANIMLAMALAR ---
+    const MONTHS = ["OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN", "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM", "KASIM", "ARALIK"];
+    const MONTH_DURATION_MS = 120 * 1000; // 2 dakika
+    
+    const STYLES = [
+        { id: 'STONE_HOUSE', name: 'Taş Ev', cost: 0, rentMultiplier: 1.0, sellMultiplier: 1.0, popMultiplier: 1.0, color: '#a09385' },
+        { id: 'MODERN_APARTMENT', name: 'Modern Apartman', cost: 5000, rentMultiplier: 1.5, sellMultiplier: 1.5, popMultiplier: 1.2, color: '#3498db' },
+        { id: 'SKYSCRAPER_GLASS', name: 'Cam Gökdelen', cost: 25000, rentMultiplier: 2.5, sellMultiplier: 2.2, popMultiplier: 1.5, color: '#2ecc71' }
+    ];
+    const UPGRADES = {
+        speed: { name: "Hızlandırılmış Vinç Motoru", baseCost: 500, effect: 0.005, maxLevel: 5 },
+        accuracy: { name: "Lazer Destekli Kilitleme", baseCost: 1000, effect: 5, maxLevel: 3 }
+    };
+    const RANKS = [
+        {l:0, n:"Köy"}, {l:1000, n:"Kasaba"}, {l:10000, n:"İlçe"}, 
+        {l:100000, n:"Şehir"}, {l:750000, n:"Büyükşehir"}, {l:5000000, n:"METROPOL"}
+    ];
+    
+    // --- VERİ VE DOM REFERANSLARI ---
+    let cityData = JSON.parse(localStorage.getItem('grandCityData')) || Array(16).fill(null);
+    let cityMeta = JSON.parse(localStorage.getItem('grandCityMeta')) || { 
+        cash: 0, 
+        upgrades: { speed: 0, accuracy: 0 }, 
+        styles: ['STONE_HOUSE'], 
+        activeStyle: 'STONE_HOUSE',
+        lastMonthTime: Date.now(), 
+        currentMonthIndex: 0 
+    };
+    
+    let activeSlot = -1;
+    let isDelete = false;
+    let totalPop = 0;
+    let monthInterval = null;
+    
+    const domGrid = document.getElementById('grid');
+    const domCityName = document.getElementById('cityName');
+    const domStats = document.getElementById('cityStats');
+    const domCash = document.getElementById('cashDisplay');
+    const btnDelete = document.getElementById('btnDelete');
+    const domTimeCountdown = document.getElementById('timeCountdown');
+    const domMonthName = document.getElementById('monthName');
+    const domWeatherUI = document.getElementById('weatherUI');
+
+    // --- ŞEHİR YÖNETİMİ VE ZAMAN DÖNGÜSÜ (Aynı Kaldı) ---
+    
+    function getCurrentStyleObject() {
+        return STYLES.find(s => s.id === cityMeta.activeStyle) || STYLES[0];
+    }
+    
+    function initDashboard() {
+        if (cityMeta.lastMonthTime === undefined) cityMeta.lastMonthTime = Date.now();
+        if (cityMeta.currentMonthIndex === undefined) cityMeta.currentMonthIndex = 0;
+        
+        resizeCityCanvas();
+        if (cityData.length !== 16) cityData = Array(16).fill(null);
+
+        startMonthCycle();
+
+        renderGrid();
+        updateCityStats();
+        
+        spawnCityAmbientPeople(); // Ortam insanlarını başlat
+        
+        if (cityAnimationFrameId) cancelAnimationFrame(cityAnimationFrameId); 
+        cityLoop(); // Şehir arka plan animasyonunu başlat
+    }
+    
+    function startMonthCycle() {
+        if (monthInterval) clearInterval(monthInterval);
+        processTimePassed();
+        monthInterval = setInterval(updateMonthTimer, 1000);
+    }
+    
+    function updateMonthTimer() {
+        const elapsed = Date.now() - cityMeta.lastMonthTime;
+        const remaining = MONTH_DURATION_MS - (elapsed % MONTH_DURATION_MS);
+        
+        const minutes = Math.floor(remaining / 60000);
+        const seconds = Math.floor((remaining % 60000) / 1000);
+        
+        domTimeCountdown.innerText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        domMonthName.innerText = `AY: ${MONTHS[cityMeta.currentMonthIndex]}`;
+
+        if (elapsed >= MONTH_DURATION_MS) {
+            processMonthlyIncome();
+            cityMeta.lastMonthTime = Date.now();
+            cityMeta.currentMonthIndex = (cityMeta.currentMonthIndex + 1) % 12;
+            saveMeta();
+        }
+    }
+
+    function processMonthlyIncome() {
+        let totalRentIncome = 0;
+        cityData.forEach(slot => {
+            if (slot && slot.status === 'RENTED') {
+                const style = STYLES.find(s => s.id === slot.styleId) || STYLES[0];
+                totalRentIncome += slot.floors * 100 * style.rentMultiplier;
+            }
+        });
+        
+        totalPop = cityData.reduce((acc, val) => acc + (val ? val.pop : 0), 0);
+        const baseIncome = totalPop * 5 * 30; 
+        const totalIncome = Math.round(baseIncome + totalRentIncome);
+        
+        cityMeta.cash += totalIncome;
+        saveMeta();
+        updateCityStats();
+        
+        alert(`🎉 Yeni Ay Geliri Geldi (${MONTHS[cityMeta.currentMonthIndex]})!
+        💰 Toplam Kazanç: $${totalIncome.toLocaleString()}
+        (Kira: $${Math.round(totalRentIncome).toLocaleString()}, Nüfus: $${Math.round(baseIncome).toLocaleString()})`);
+    }
+    
+    function processTimePassed() {
+        const timeElapsed = Date.now() - cityMeta.lastMonthTime;
+        const monthsPassed = Math.floor(timeElapsed / MONTH_DURATION_MS); 
+        
+        if (monthsPassed > 0) {
+            let totalRentIncomePerMonth = 0;
+            cityData.forEach(slot => {
+                if (slot && slot.status === 'RENTED') {
+                    const style = STYLES.find(s => s.id === slot.styleId) || STYLES[0];
+                    totalRentIncomePerMonth += slot.floors * 100 * style.rentMultiplier;
+                }
+            });
+            
+            totalPop = cityData.reduce((acc, val) => acc + (val ? val.pop : 0), 0);
+            const baseIncomePerMonth = totalPop * 5 * 30;
+            
+            const totalIncomePerMonth = Math.round(baseIncomePerMonth + totalRentIncomePerMonth);
+            const totalBulkIncome = totalIncomePerMonth * monthsPassed;
+
+            cityMeta.cash += totalBulkIncome;
+            cityMeta.lastMonthTime = Date.now(); 
+            cityMeta.currentMonthIndex = (cityMeta.currentMonthIndex + monthsPassed) % 12;
+            saveMeta();
+            
+            if (totalBulkIncome > 0) {
+                 alert(`🏡 Hoş Geldiniz!
+                 ${monthsPassed} ay boyunca şehir boş kaldı ve toplu geliriniz eklendi:
+                 💰 $${totalBulkIncome.toLocaleString()}`);
+            }
+        }
+    }
+
+    function updateCityStats() {
+        totalPop = cityData.reduce((acc, val) => acc + (val ? val.pop : 0), 0);
+        let rank = RANKS.findLast(r => totalPop >= r.l) || RANKS[0];
+        let currentStyle = getCurrentStyleObject();
+        
+        domStats.innerHTML = `Nüfus: ${totalPop.toLocaleString()} | Statü: ${rank.n}`;
+        domCityName.innerText = totalPop > 5000000 ? "MEGA KENT" : (totalPop > 0 ? "Gelişen Şehir" : "Kuzey Yamaçları");
+        document.getElementById("currentStyleInfo").innerHTML = `*Mevcut stiliniz: <b>${currentStyle.name}</b>`;
+        domCash.innerText = `💰 $${cityMeta.cash.toLocaleString()}`;
+    }
+
+    function renderGrid() {
+        domGrid.innerHTML = "";
+        cityData.forEach((slot, i) => {
+            let el = document.createElement('div');
+            el.className = `plot ${slot ? 'occupied' : ''}`;
+            el.onclick = () => clickSlot(i);
+            
+            if(slot) {
+                const styleObj = STYLES.find(s => s.id === slot.styleId) || STYLES[0]; 
+                let statusIcon = slot.status === 'RENTED' ? '🏠' : '✅';
+                let statusText = slot.status === 'RENTED' ? 'KİRADA' : 'SAHİPLİ';
+                el.innerHTML = `
+                    <div class="roof-view" style="background:${styleObj.color}; border-color:${slot.styleId==='SKYSCRAPER_GLASS' ? '#66FFFF' : 'rgba(255,255,255,0.2)'}"></div>
+                    <div class="plot-info">${slot.floors} Kat ${statusIcon}<br>${slot.pop} Kişi (${statusText})</div>
+                `;
+            } else {
+                el.innerHTML = `<span style="font-size:30px; color:#555;">+</span>`;
+            }
+            domGrid.appendChild(el);
+        });
+    }
+
+    // --- MARKET VE EKONOMİ FONKSİYONLARI (Aynı Kaldı) ---
+    
+    function resetGameData() {
+        if (confirm("Şehirdeki tüm binaları, parayı ve yükseltmeleri sıfırlamak istediğinizden emin misiniz?")) {
+            localStorage.removeItem('grandCityData');
+            localStorage.removeItem('grandCityMeta');
+            cityData = Array(16).fill(null);
+            cityMeta = { cash: 0, upgrades: { speed: 0, accuracy: 0 }, styles: ['STONE_HOUSE'], activeStyle: 'STONE_HOUSE', lastMonthTime: Date.now(), currentMonthIndex: 0 };
+            save();
+            initDashboard();
+        }
+    }
+    
+    function toggleDelete() {
+        isDelete = !isDelete;
+        btnDelete.classList.toggle('active');
+        btnDelete.innerText = isDelete ? "MOD: YIKIM (İptal)" : "🚧 Yıkım Modu";
+    }
+
+    function clickSlot(i) {
+        if(isDelete) {
+            if(cityData[i] && confirm("Bu bina yıkılsın mı?")) {
+                cityData[i] = null;
+                save();
+                updateCityStats();
+                renderGrid();
+            }
+        } else {
+            if(!cityData[i]) { 
+                activeSlot = i; 
+                if (cityAnimationFrameId) cancelAnimationFrame(cityAnimationFrameId); 
+                if (monthInterval) clearInterval(monthInterval); 
+                startGameEngine(totalPop); 
+            } 
+            else { alert("Burası dolu! Önce yıkmalısın."); }
+        }
+    }
+    
+    function save() { localStorage.setItem('grandCityData', JSON.stringify(cityData)); saveMeta(); }
+    function saveMeta() { localStorage.setItem('grandCityMeta', JSON.stringify(cityMeta)); }
+
+    let activeMarketTab = 'crane-upgrades';
+
+    function openMarket() {
+        document.getElementById('marketModal').style.display = 'flex';
+        changeMarketTab(activeMarketTab);
+    }
+
+    function closeMarket() {
+        document.getElementById('marketModal').style.display = 'none';
+        updateCityStats(); 
+    }
+    
+    function changeMarketTab(tabId) {
+        activeMarketTab = tabId;
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector(`.tab-btn[onclick*="${tabId}"]`).classList.add('active');
+        
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+
+        if (tabId === 'crane-upgrades') renderCraneUpgrades();
+        if (tabId === 'style-upgrades') renderStyleUpgrades();
+    }
+
+    function calculateCost(type, level) {
+        const upgrade = UPGRADES[type];
+        return upgrade.baseCost * Math.pow(2, level); 
+    }
+
+    function renderCraneUpgrades() {
+        document.getElementById('marketCash').innerText = `Cebinizde: 💰 $${cityMeta.cash.toLocaleString()}`;
+        const list = document.getElementById('upgradesList');
+        list.innerHTML = '';
+
+        Object.keys(UPGRADES).forEach(key => {
+            const currentLevel = cityMeta.upgrades[key];
+            const maxLevel = UPGRADES[key].maxLevel;
+            const cost = calculateCost(key, currentLevel);
+            const isMax = currentLevel >= maxLevel;
+            const canAfford = cityMeta.cash >= cost;
+
+            const div = document.createElement('div');
+            div.className = 'upgrade-item';
+            div.innerHTML = `
+                <div>
+                    <strong>${UPGRADES[key].name}</strong>
+                    <p style="margin:0; font-size:12px;">Seviye: ${currentLevel}/${maxLevel}</p>
+                </div>
+                ${isMax 
+                    ? `<button disabled style="background-color: #aaa; color: white; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: not-allowed;">MAX SEVİYE</button>` 
+                    : `<button ${!canAfford ? 'disabled' : ''} onclick="buyUpgrade('${key}', ${cost})" style="background-color: #2ecc71; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; ${!canAfford ? 'background-color: #aaa; cursor: not-allowed;' : ''}">💰 $${cost.toLocaleString()}</button>`
+                }
+            `;
+            list.appendChild(div);
+        });
+    }
+
+    function buyUpgrade(type, cost) {
+        if (cityMeta.cash >= cost && cityMeta.upgrades[type] < UPGRADES[type].maxLevel) {
+            cityMeta.cash -= cost;
+            cityMeta.upgrades[type]++;
+            saveMeta();
+            renderCraneUpgrades();
+            alert(`Tebrikler! ${UPGRADES[type].name} seviye ${cityMeta.upgrades[type]}'ye yükseltildi.`);
+        } else if (cityMeta.upgrades[type] >= UPGRADES[type].maxLevel) {
+             alert("Bu yükseltme zaten maksimum seviyede!");
+        } else {
+            alert("Yeterli paranız yok!");
+        }
+    }
+    
+    function renderStyleUpgrades() {
+        document.getElementById('marketCash').innerText = `Cebinizde: 💰 $${cityMeta.cash.toLocaleString()}`;
+        const list = document.getElementById('stylesList');
+        list.innerHTML = '';
+
+        STYLES.forEach(style => {
+            const isOwned = cityMeta.styles.includes(style.id);
+            const isActive = cityMeta.activeStyle === style.id;
+            const canAfford = cityMeta.cash >= style.cost;
+            const isFree = style.cost === 0;
+
+            const div = document.createElement('div');
+            div.className = 'upgrade-item';
+            
+            let buttonHTML;
+            if (isActive) {
+                buttonHTML = `<button disabled style="background-color: #3498db; cursor: default;">AKTİF</button>`;
+            } else if (isOwned) {
+                buttonHTML = `<button onclick="activateStyle('${style.id}')" style="background-color: #f39c12;">SEÇ</button>`;
+            } else if (isFree) {
+                 buttonHTML = `<button disabled style="background-color: #aaa; cursor: default;">BAŞLANGIÇ</button>`;
+            } else {
+                buttonHTML = `<button ${!canAfford ? 'disabled' : ''} onclick="buyStyle('${style.id}', ${style.cost})" style="background-color: #e74c3c; ${!canAfford ? 'background-color: #aaa;' : ''}">💰 $${style.cost.toLocaleString()}</button>`;
+            }
+
+            div.innerHTML = `
+                <div>
+                    <strong>${style.name}</strong> 
+                    <span style="display:inline-block; width:10px; height:10px; background:${style.color}; border:1px solid #333; margin-left:5px;"></span>
+                    <p style="margin:0; font-size:12px;">Kira Çarpanı: x${style.rentMultiplier} | Nüfus Çarpanı: x${style.popMultiplier}</p>
+                </div>
+                ${buttonHTML}
+            `;
+            list.appendChild(div);
+        });
+    }
+    
+    function buyStyle(styleId, cost) {
+        if (cityMeta.cash >= cost) {
+            cityMeta.cash -= cost;
+            cityMeta.styles.push(styleId);
+            cityMeta.activeStyle = styleId;
+            saveMeta();
+            renderStyleUpgrades();
+            updateCityStats();
+            alert(`Tebrikler! ${STYLES.find(s=>s.id===styleId).name} satın alındı ve aktif edildi.`);
+        } else {
+            alert("Yeterli paranız yok!");
+        }
+    }
+
+    function activateStyle(styleId) {
+        if (cityMeta.styles.includes(styleId)) {
+            cityMeta.activeStyle = styleId;
+            saveMeta();
+            renderStyleUpgrades();
+            updateCityStats();
+            alert(`${STYLES.find(s=>s.id===styleId).name} aktif edildi. Yeni binalar bu stilde inşa edilecek.`);
+        }
+    }
+
+    // --- CANLI ŞEHİR ORTAMI (Dashboard Arka Planı) ---
+    // BU KISIMDA DAHA ÖNCE EKSİK OLAN drawCityAmbientPeople ve cityLoop İÇERİKLERİ TAMAMLANDI
+    let cityAmbientPeople = []; 
+    const cityCanvas = document.getElementById('cityCanvas');
+    const cityCtx = cityCanvas.getContext('2d');
+    let cityAnimFrame = 0;
+    let cityAnimationFrameId = null; 
+
+    function resizeCityCanvas() {
+        if(cityCanvas) { 
+            cityCanvas.width = window.innerWidth;
+            cityCanvas.height = window.innerHeight;
+        }
+    }
+    window.addEventListener('resize', () => { 
+        resizeCityCanvas(); 
+        if (document.getElementById('dashboard').classList.contains('active')) {
+            spawnCityAmbientPeople(); 
+        }
+    });
+
+    const dashboardCharTypes = ['child', 'adult_walker', 'adult_sitter', 'worker', 'empty'];
+    function spawnCityAmbientPeople() {
+        cityAmbientPeople = []; 
+        let numPeople = Math.floor(Math.random() * 8) + 3; 
+        const groundY = cityCanvas.height - 30; 
+
+        for(let i=0; i<numPeople; i++) {
+            let charType = dashboardCharTypes[Math.floor(Math.random() * dashboardCharTypes.length)];
+            if (charType === 'empty') continue; 
+            
+            let x = Math.random() * cityCanvas.width;
+            let y = groundY;
+            let vx = (Math.random() - 0.5) * 0.5; 
+            let color = `hsl(${Math.random()*360}, 70%, 50%)`;
+            let isSitting = (charType === 'adult_sitter');
+
+            cityAmbientPeople.push({
+                charType, x, y, vx, color, isSitting,
+                age: Math.random(), 
+                life: Infinity,
+                frameOffset: Math.random() * 100 
+            });
+        }
+    }
+    
+    function cityLoop() {
+        if (!cityCtx) return; 
+
+        cityAnimationFrameId = requestAnimationFrame(cityLoop);
+        cityAnimFrame++;
+
+        cityCtx.clearRect(0, 0, cityCanvas.width, cityCanvas.height);
+        
+        cityCtx.fillStyle = '#2c3e50';
+        cityCtx.fillRect(0, 0, cityCanvas.width, cityCanvas.height);
+        cityCtx.fillStyle = '#111'; 
+        cityCtx.fillRect(0, cityCanvas.height - 100, cityCanvas.width, 100);
+
+        cityCtx.fillStyle = '#4CAF50'; 
+        cityCtx.fillRect(0, cityCanvas.height - 30, cityCanvas.width, 30);
+        
+        // Bank (Oturma yeri)
+        cityCtx.fillStyle = '#795548'; 
+        ctx.fillRect(cityCanvas.width * 0.2, cityCanvas.height - 40, 60, 10);
+        ctx.fillRect(cityCanvas.width * 0.2 + 5, cityCanvas.height - 30, 3, 10);
+        ctx.fillRect(cityCanvas.width * 0.2 + 50, cityCanvas.height - 30, 3, 10);
+
+
+        drawCityAmbientPeople();
+    }
+
+    function drawCityAmbientPeople() {
+        if (!cityCtx) return; 
+        const groundY = cityCanvas.height - 30;
+
+        for(let i=cityAmbientPeople.length-1; i>=0; i--) {
+            let p = cityAmbientPeople[i];
+
+            p.x += p.vx;
+            if (p.x < -10 || p.x > cityCanvas.width + 10) {
+                p.x = p.x < -10 ? cityCanvas.width + 10 : -10;
+            }
+
+            let bodyHeight = p.charType === 'child' ? 15 : 20;
+            let headRadius = p.charType === 'child' ? 3 : 4;
+            let headX = p.x;
+            
+            if (p.isSitting) {
+                let sitY = groundY - 10;
+                cityCtx.fillStyle = p.color;
+                cityCtx.fillRect(headX - 5, sitY - 10, 10, 10); 
+                cityCtx.fillStyle = "#f3d1b1"; 
+                cityCtx.beginPath(); cityCtx.arc(headX, sitY - 5, headRadius, 0, 6.28); cityCtx.fill(); 
+            } else {
+                cityCtx.fillStyle = p.color; 
+                cityCtx.fillRect(headX - 3, groundY - bodyHeight, 6, bodyHeight); 
+                cityCtx.fillStyle = "#f3d1b1"; 
+                cityCtx.beginPath(); cityCtx.arc(headX, groundY - bodyHeight - headRadius, headRadius, 0, 6.28); cityCtx.fill(); 
+                headX += Math.sin((cityAnimFrame + p.frameOffset) * 0.2) * p.vx * 3;
+            }
+
+            if (p.charType === 'child' && !p.isSitting) {
+                cityCtx.strokeStyle = p.color;
+                cityCtx.lineWidth = 2;
+                let armAngle = Math.sin((cityAnimFrame + p.frameOffset) * 0.1) * 0.5;
+                cityCtx.beginPath();
+                cityCtx.moveTo(p.x - 5, groundY - 10);
+                cityCtx.lineTo(p.x - 5 + Math.cos(armAngle) * 5, groundY - 10 + Math.sin(armAngle) * 5);
+                cityCtx.stroke();
+            } else if (p.charType === 'worker' && !p.isSitting) {
+                cityCtx.fillStyle = 'orange'; 
+                cityCtx.fillRect(headX - 5, groundY - bodyHeight - headRadius - 2, 10, 3); 
+                cityCtx.fillStyle = 'brown'; 
+                cityCtx.fillRect(headX - 4, groundY - bodyHeight, 8, bodyHeight);
+            }
+        }
+    }
+
+
+    // --- GELİŞMİŞ OYUN MOTORU & SES ---
+    // BU KISIMDA DAHA ÖNCE EKSİK OLAN SES VE KARAKTER ÇİZİM FONKSİYONLARI TAMAMLANDI
+    const cvs = document.getElementById('gameCanvas');
+    const ctx = cvs.getContext('2d');
+    let W, H, state;
+    let stack=[], current=null, cameraY=0, score=0, sessionPop=0;
+    let ambient=[], people=[], bgCity=[], stars=[];
+    let weather = 'CLEAR';
+    let frame = 0;
+    let currentBuildingStyle;
+    let perfectCombo = 0; 
+    let isBonusBlock = false;
+
+    // SES Kontrolü
+    const actx = new (window.AudioContext || window.webkitAudioContext)();
+    let windSource, rainSource; 
+    let windGain, rainGain; 
+    let lastThunderTime = 0;
+    const THUNDER_INTERVAL = 10000; 
+    let volume = { 
+        game: parseFloat(localStorage.getItem('gameVolume') || 0.7), 
+        ambient: parseFloat(localStorage.getItem('ambientVolume') || 0.4) 
+    }; 
+    
+    function updateVolume(type, value) {
+        volume[type] = value / 100;
+        localStorage.setItem(`${type}Volume`, volume[type]);
+        const windVol = volume.ambient * (score > 20 ? (score > 40 ? 0.1 : 0.05) : 0);
+        if (windGain) windGain.gain.setValueAtTime(windVol, actx.currentTime);
+        if (rainGain) rainGain.gain.setValueAtTime(volume.ambient * 0.2, actx.currentTime);
+    }
+    function tone(f=300, t='square', d=0.08, vol=0.1) {
+        if(actx.state==='suspended') actx.resume();
+        let finalVol = vol * volume.game; 
+        if (finalVol < 0.001) return; 
+        let o=actx.createOscillator(), g=actx.createGain();
+        o.type=t; o.frequency.value=f;
+        g.gain.setValueAtTime(finalVol, actx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime+d);
+        o.connect(g); g.connect(actx.destination);
+        o.start(); o.stop(actx.currentTime+d);
+    }
+    function stopAllAudio() {
+        if (windSource) { windSource.stop(); windSource = null; }
+        if (rainSource) { rainSource.stop(); rainSource = null; }
+        windGain = rainGain = null;
+    }
+    function createNoiseBuffer(duration) {
+        let bufferSize = actx.sampleRate * duration;
+        let buffer = actx.createBuffer(1, bufferSize, actx.sampleRate);
+        let output = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+        return buffer;
+    }
+    function toggleWindSound(on) {
+        if (on && !windSource) {
+            windSource = actx.createBufferSource();
+            windSource.buffer = createNoiseBuffer(3);
+            windSource.loop = true;
+            windGain = actx.createGain();
+            windSource.connect(windGain);
+            windGain.connect(actx.destination);
+            windSource.start();
+            updateVolume('ambient', volume.ambient * 100); 
+        } else if (!on && windSource) {
+            windSource.stop();
+            windSource = null;
+            windGain = null;
+        }
+    }
+    function playWindGust() {
+        if (actx.state === 'suspended') actx.resume();
+        if (windGain) {
+            windGain.gain.setValueAtTime(0, actx.currentTime);
+            windGain.gain.linearRampToValueAtTime(volume.ambient * 0.4, actx.currentTime + 0.1);
+            windGain.gain.linearRampToValueAtTime(volume.ambient * 0.05, actx.currentTime + 1.5);
+        }
+    }
+    function toggleRainSound(on) {
+        if (on && !rainSource) {
+            rainSource = actx.createBufferSource();
+            rainSource.buffer = createNoiseBuffer(3);
+            rainSource.loop = true;
+            rainGain = actx.createGain();
+            rainSource.connect(rainGain);
+            rainGain.connect(actx.destination);
+            rainSource.start();
+            updateVolume('ambient', volume.ambient * 100); 
+        } else if (!on && rainSource) {
+            rainSource.stop();
+            rainSource = null;
+            rainGain = null;
+        }
+    }
+    function playThunderSound() {
+        if (actx.state === 'suspended') actx.resume();
+        if (Date.now() - lastThunderTime < THUNDER_INTERVAL) return;
+        lastThunderTime = Date.now();
+        
+        const noise = actx.createBufferSource();
+        noise.buffer = createNoiseBuffer(2);
+        const gain = actx.createGain();
+        gain.gain.setValueAtTime(volume.game * 0.5, actx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 2);
+        
+        noise.connect(gain);
+        gain.connect(actx.destination);
+        noise.start();
+    }
+    function playClap(vol=0.5) {
+        if (actx.state === 'suspended') actx.resume();
+        let finalVol = vol * volume.game; 
+        if (finalVol < 0.001) return;
+        let o=actx.createOscillator(), g=actx.createGain();
+        o.type='triangle'; o.frequency.value=440;
+        g.gain.setValueAtTime(finalVol, actx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime+0.05);
+        o.connect(g); g.connect(actx.destination);
+        o.start(); o.stop(actx.currentTime+0.05);
+    }
+    function resize() { W=cvs.width=window.innerWidth; H=cvs.height=window.innerHeight; }
+
+    function startGameEngine(pop) {
+        document.getElementById('dashboard').classList.remove('active');
+        document.getElementById('gameScreen').classList.add('active');
+        document.getElementById('msgOverlay').style.display='none';
+        
+        resize();
+        state='PLAY'; score=0; sessionPop=0; cameraY=0;
+        ambient=[]; people=[]; current=null; 
+        
+        perfectCombo = 0; 
+        isBonusBlock = false;
+        document.getElementById('comboText').innerText = '';
+
+        currentBuildingStyle = cityMeta.activeStyle;
+        
+        stack=[{x:W/2-30, y:H-50, w:60, h:60, c:'#555', isBonus: false, styleId: 'BASE'}]; 
+        
+        bgCity=[]; for(let x=0; x<W; x+=40+Math.random()*40) bgCity.push({x:x, w:40+Math.random()*30, h:100+Math.random()*200, c:`hsl(210, 20%, ${20+Math.random()*10}%)`});
+        stars=[]; for(let i=0; i<100; i++) stars.push({x:Math.random()*W, y:Math.random()*H, s:Math.random()*2});
+
+        setWeather();
+        spawnBlock();
+        
+        toggleWindSound(true);
+        toggleRainSound(weather === 'RAIN');
+        
+        loop();
+    }
+    
+    function getCraneStats() {
+        const baseSpeed = 0.03;
+        const baseAccuracy = 10;
+        
+        const speedBonus = cityMeta.upgrades.speed * UPGRADES.speed.effect;
+        const accuracyBonus = cityMeta.upgrades.accuracy * UPGRADES.accuracy.effect;
+        
+        return {
+            speed: baseSpeed + speedBonus,
+            accuracy: baseAccuracy - accuracyBonus 
+        };
+    }
+    function spawnBlock() {
+        if(score>0 && score%10===0) setWeather();
+        const craneStats = getCraneStats();
+        
+        const styleObj = getCurrentStyleObject();
+        let color, buildingPopMultiplier = 1;
+        
+        color = styleObj.color;
+        if (isBonusBlock) {
+             color = styleObj.id === 'SKYSCRAPER_GLASS' ? '#e74c3c' : (styleObj.id === 'MODERN_APARTMENT' ? '#2ecc71' : '#ffd700');
+        }
+        buildingPopMultiplier = styleObj.popMultiplier;
+        
+        current = {
+            x:W/2, y:100, w:60, h:60,
+            ang:0, spd:craneStats.speed+(score*0.002), rope:200, drop:false, vy:0,
+            c: color, 
+            isBonus: isBonusBlock,
+            maxDiff: 10 - craneStats.accuracy,
+            popMult: buildingPopMultiplier,
+            styleId: currentBuildingStyle
+        };
+        document.getElementById('floorCount').innerText = "Kat: " + score;
+        document.getElementById('popCount').innerText = "Nüfus: +" + sessionPop;
+        document.getElementById('comboText').innerText = perfectCombo > 0 ? `${perfectCombo}x Mükemmel!` : '';
+        domWeatherUI.innerText = "Hava: " + (weather === 'CLEAR' ? 'Açık' : (weather === 'RAIN' ? 'Yağmurlu' : 'Karlı'));
+    }
+    
+    let gameAnimationFrameId = null;
+
+    function loop() {
+        if(state!=='PLAY' && people.length===0 && ambient.length===0) return;
+        gameAnimationFrameId = requestAnimationFrame(loop);
+        frame++;
+        
+        if (state === 'PLAY') {
+            toggleWindSound(true);
+            toggleRainSound(weather === 'RAIN');
+            if (weather === 'RAIN' && Math.random() < 0.001) { playThunderSound(); }
+            if (weather === 'SNOW' && Math.random() < 0.005) { playWindGust(); }
+            
+             if(current) {
+                if(!current.drop) {
+                    let pivotX = W/2, pivotY = stack[stack.length-1].y - 250;
+                    let wind = (score>20) ? Math.sin(frame*0.05)*15 : 0;
+                    current.ang += current.spd;
+                    current.x = pivotX + Math.sin(current.ang)*current.rope - 30 + wind;
+                    current.y = pivotY + Math.cos(current.ang)*20 + current.rope;
+                } else {
+                    current.vy += 0.8; current.y += current.vy;
+                    let top = stack[stack.length-1];
+                    if(current.y + current.h >= top.y) {
+                        let diff = current.x - top.x;
+                        if(Math.abs(diff) < 60) {
+                            current.y = top.y - current.h;
+                            
+                            let gainedPop = 0; 
+                            let isPerfect = Math.abs(diff) < current.maxDiff; 
+                            
+                            if(isPerfect) {
+                                current.x = top.x; 
+                                perfectCombo++;
+                                
+                                if (perfectCombo === 3 && !isBonusBlock) { 
+                                    gainedPop = 4 * current.popMult; isBonusBlock = true;
+                                    tone(800, 'square', 0.2, 0.2); playClap(0.8); 
+                                    spawnCharacter('window', top.x, top.y, gainedPop);
+                                } else if (perfectCombo === 4 && isBonusBlock) { 
+                                    gainedPop = 6 * current.popMult; isBonusBlock = false; perfectCombo = 0; 
+                                    spawnCharacter('plane', top.x, top.y, gainedPop);
+                                    tone(1200, 'triangle', 0.3, 0.3);
+                                } else {
+                                    gainedPop = 4 * current.popMult; 
+                                    spawnCharacter('window', top.x, top.y, gainedPop); tone(500); 
+                                    if (perfectCombo > 4) perfectCombo = 1; 
+                                }
+                            } else {
+                                perfectCombo = 0; isBonusBlock = false; 
+                                let count = Math.random()>0.5 ? 2 : 1; 
+                                gainedPop = count * current.popMult;
+                                let fallType = (weather === 'SNOW') ? 'helicopter' : 'parachute'; 
+                                spawnCharacter(fallType, top.x, top.y, gainedPop); tone(300); 
+                                if(weather==='SNOW') current.x += (Math.random()-0.5)*15;
+                            }
+                            sessionPop += Math.ceil(gainedPop); 
+                            stack.push(current); score++; spawnBlock();
+                        } else { if(current.y > H + cameraY + 200) gameOver(); }
+                    }
+                }
+            }
+        }
+
+        // ÇİZİM KISMI
+        let targetCam = (stack.length>3) ? (stack.length-3)*60 : 0; cameraY += (targetCam - cameraY) * 0.1;
+        ctx.setTransform(1,0,0,1,0,0);
+        let skyColor = score<15 ? "#87CEEB" : (score<30 ? "#3498db" : (score<50 ? "#2c3e50" : "#000"));
+        ctx.fillStyle = skyColor; ctx.fillRect(0,0,W,H);
+        
+        ctx.save(); ctx.translate(0, cameraY*0.5);
+            if(score>30) { ctx.fillStyle="white"; stars.forEach(s=>{ ctx.beginPath(); ctx.arc(s.x, s.y, s.s, 0, 6.28); ctx.fill(); }); }
+            if(score<20) {
+                bgCity.forEach(b=>{ ctx.fillStyle = b.c; ctx.fillRect(b.x, H-b.h, b.w, b.h);
+                    ctx.fillStyle = "rgba(255,255,200,0.3)";
+                    if(Math.random()>0.9) ctx.fillRect(b.x+5, H-b.h+10, 5, 5);
+                });
+            }
+        ctx.restore();
+
+        ctx.translate(0, cameraY);
+        ctx.fillStyle="#333"; ctx.fillRect(0, H-50, W, 500); ctx.fillStyle="#2ecc71"; ctx.fillRect(0, H-50, W, 10);
+
+        stack.forEach((b, index) => {
+            if (!b) return; 
+            const style = STYLES.find(s => s.id === b.styleId) || STYLES[0];
+            const isTopBlock = index === stack.length - 1;
+
+            if (style.id === 'STONE_HOUSE' || b.styleId === 'BASE') {
+                ctx.fillStyle = b.isBonus ? '#ffd700' : (style.id === 'BASE' ? '#555' : style.color); 
+                ctx.fillRect(b.x, b.y, b.w, b.h);
+                ctx.strokeStyle = "rgba(0,0,0,0.2)"; ctx.lineWidth = 1;
+                for(let i=0; i<b.w; i+=10) { ctx.beginPath(); ctx.moveTo(b.x+i, b.y); ctx.lineTo(b.x+i-5, b.y+b.h); ctx.stroke(); }
+                if (isTopBlock && state==='PLAY') { 
+                    ctx.fillStyle = b.isBonus ? '#e67e22' : '#c0392b'; 
+                    ctx.beginPath(); ctx.moveTo(b.x - 5, b.y); ctx.lineTo(b.x + b.w + 5, b.y); ctx.lineTo(b.x + b.w / 2, b.y - 20); ctx.closePath(); ctx.fill();
+                }
+                ctx.fillStyle = "rgba(100,70,50, 0.7)";
+                ctx.fillRect(b.x + 15, b.y + 20, 10, 10); ctx.fillRect(b.x + 35, b.y + 20, 10, 10);
+
+            } else if (style.id === 'MODERN_APARTMENT') {
+                ctx.fillStyle = b.isBonus ? '#2ecc71' : style.color; 
+                ctx.fillRect(b.x, b.y, b.w, b.h);
+                ctx.fillStyle = "rgba(255,255,255,0.4)";
+                ctx.fillRect(b.x+5, b.y+10, 20, 20); ctx.fillRect(b.x+35, b.y+10, 20, 20);
+                ctx.strokeStyle = "rgba(0,0,0,0.2)"; ctx.strokeRect(b.x, b.y, b.w, b.h);
+            } else if (style.id === 'SKYSCRAPER_GLASS') {
+                ctx.fillStyle = b.isBonus ? '#e74c3c' : style.color; 
+                ctx.fillRect(b.x, b.y, b.w, b.h);
+                ctx.fillStyle = "rgba(255,255,255,0.7)";
+                ctx.fillRect(b.x+5, b.y+5, 15, 45); ctx.fillRect(b.x+40, b.y+5, 15, 45);
+                ctx.strokeStyle = "rgba(0,0,0,0.2)"; ctx.strokeRect(b.x, b.y, b.w, b.h);
+            }
+        });
+
+
+        if(state==='PLAY' && current) {
+            if(!current.drop) {
+                let px = W/2, py = stack[stack.length-1].y-250;
+                ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(current.x+30, current.y);
+                ctx.lineWidth=3; ctx.strokeStyle="#333"; ctx.stroke();
+                ctx.beginPath(); ctx.arc(px, py, 5, 0, 6.28); ctx.fillStyle="#000"; ctx.fill();
+            }
+
+            const currentStyleObj = getCurrentStyleObject();
+            ctx.fillStyle = current.isBonus ? (currentStyleObj.id === 'SKYSCRAPER_GLASS' ? '#e74c3c' : '#ffd700') : currentStyleObj.color;
+            ctx.fillRect(current.x, current.y, current.w, current.h);
+            ctx.strokeRect(current.x, current.y, current.w, current.h);
+        }
+
+        drawAmbient();
+        drawPeople();
+    }
+
+    // --- Helper Fonksiyonlar ---
+    function setWeather() {
+        if (score < 10) { weather = 'CLEAR'; }
+        else if (score < 30) { weather = Math.random() < 0.2 ? 'RAIN' : 'CLEAR'; }
+        else if (score < 50) { weather = Math.random() < 0.4 ? 'SNOW' : (Math.random() < 0.6 ? 'RAIN' : 'CLEAR'); }
+        else { weather = Math.random() < 0.6 ? 'SNOW' : (Math.random() < 0.8 ? 'RAIN' : 'CLEAR'); }
+        
+        ambient = []; // Hava durumu değişince eski partikülleri temizle
+        domWeatherUI.innerText = "Hava: " + (weather === 'CLEAR' ? 'Açık' : (weather === 'RAIN' ? 'Yağmurlu' : 'Karlı'));
+    }
+    const charTypes = ['grandma', 'grandpa', 'couple', 'family', 'single'];
+    function spawnCharacter(fallType, tx, ty, count) {
+        if (!count || count < 1) return;
+        
+        const type = charTypes[Math.floor(Math.random() * charTypes.length)];
+        const color = `hsl(${Math.random()*360}, 70%, 50%)`;
+        
+        for (let i = 0; i < count; i++) {
+            people.push({
+                x: tx + Math.random() * 60,
+                y: ty - 100 - Math.random() * 50,
+                vy: 0,
+                fallType: fallType,
+                type: type,
+                color: color,
+                landed: false,
+                life: 300 
+            });
+        }
+    }
+    
+    function drawHelicopter(p) {
+        let x = p.x; let y = p.y;
+        ctx.fillStyle = 'red'; 
+        ctx.fillRect(x - 15, y - 5, 30, 10); 
+        ctx.fillRect(x - 5, y - 15, 10, 10); 
+        
+        ctx.fillStyle = 'gray';
+        let bladeAngle = frame * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(x, y - 15);
+        ctx.lineTo(x + Math.cos(bladeAngle) * 30, y - 15 + Math.sin(bladeAngle) * 5);
+        ctx.lineTo(x - Math.cos(bladeAngle) * 30, y - 15 - Math.sin(bladeAngle) * 5);
+        ctx.stroke();
+    }
+
+    function drawPeople() {
+        for(let i=people.length-1; i>=0; i--) {
+            let p = people[i];
+            
+            if (p.fallType === 'helicopter') {
+                p.vy += 0.05; p.y += p.vy;
+                drawHelicopter(p);
+            } else if (p.fallType === 'parachute' || p.fallType === 'plane') {
+                p.vy = 0.5; p.y += p.vy;
+                // Paraşüt çizimi
+                if (p.fallType === 'parachute') {
+                    ctx.fillStyle = 'white'; 
+                    ctx.fillRect(p.x - 15, p.y - 40, 30, 5); 
+                    ctx.strokeStyle = p.color; 
+                    ctx.beginPath(); ctx.moveTo(p.x - 15, p.y - 35); ctx.lineTo(p.x - 5, p.y - 15); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(p.x + 15, p.y - 35); ctx.lineTo(p.x + 5, p.y - 15); ctx.stroke();
+                } else { // 'plane' (Uçaktan atlama) için daha hızlı düşme simülasyonu
+                     p.vy = 1.0; p.y += p.vy;
+                }
+            } else { // window veya landed
+                if (p.landed) {
+                    p.x += Math.sin(frame * 0.1) * 0.5;
+                    p.life--;
+                } else {
+                    p.vy += 0.8; p.y += p.vy;
+                }
+            }
+            
+            // Karakter (İnsan Figürü) Çizimi
+            if (!p.landed && p.fallType !== 'helicopter') {
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x - 3, p.y - 15, 6, 15); 
+                ctx.fillStyle = "#f3d1b1"; 
+                ctx.beginPath(); ctx.arc(p.x, p.y - 17, 3, 0, 6.28); ctx.fill(); 
+            } else if (p.landed) {
+                ctx.font = "12px Arial";
+                ctx.fillStyle = p.color;
+                ctx.fillText("Pop! +1", p.x, p.y - 5);
+            }
+
+            // İniş kontrolü
+            if (p.y > H - 50 && !p.landed) {
+                p.y = H - 50;
+                p.landed = true;
+                p.vy = 0;
+            }
+
+            if(p.life <= 0) people.splice(i, 1);
+        }
+    }
+    
+    function drawAmbient() {
+        if (weather === 'RAIN') {
+            toggleRainSound(true);
+            toggleWindSound(false);
+            ctx.strokeStyle = 'rgba(173, 216, 230, 0.7)';
+            ctx.lineWidth = 1;
+            for(let i=0; i<100; i++) {
+                let rain = ambient[i];
+                if(!rain) {
+                    ambient[i] = {x: Math.random()*W, y: Math.random()*H, len: 10+Math.random()*5};
+                    rain = ambient[i];
+                }
+                rain.y += 10; rain.x += 5;
+                if(rain.y > H) rain.y = -rain.len;
+                if(rain.x > W) rain.x = 0;
+                ctx.beginPath();
+                ctx.moveTo(rain.x, rain.y);
+                ctx.lineTo(rain.x + 3, rain.y + rain.len);
+                ctx.stroke();
+            }
+        } else if (weather === 'SNOW') {
+            toggleRainSound(false);
+            toggleWindSound(true);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            for(let i=0; i<100; i++) {
+                let snow = ambient[i];
+                if(!snow) {
+                    ambient[i] = {x: Math.random()*W, y: Math.random()*H, s: 1+Math.random()*2, vx: (Math.random()-0.5)*0.5};
+                    snow = ambient[i];
+                }
+                snow.y += snow.s * 0.5;
+                snow.x += snow.vx + Math.sin(frame*0.05 + i)*0.5;
+                if(snow.y > H) snow.y = 0;
+                if(snow.x > W) snow.x = 0;
+                if(snow.x < 0) snow.x = W;
+                
+                ctx.beginPath(); ctx.arc(snow.x, snow.y, snow.s, 0, 6.28); ctx.fill();
+            }
+        } else {
+             toggleRainSound(false);
+             toggleWindSound(false);
+        }
+    }
+
+
+    // Oyun Sonu ve Gelir Hesaplaması (Aynı Kaldı)
+    function gameOver() {
+        state = 'OVER'; tone(100, 'sawtooth', 0.5); stopAllAudio(); 
+
+        document.getElementById('endScore').innerText = score + " Kat";
+        document.getElementById('endPop').innerText = "+" + sessionPop + " Nüfus";
+        
+        const style = getCurrentStyleObject();
+        
+        const rentValue = score * 100 * style.rentMultiplier; 
+        const sellValue = score * 150 * style.sellMultiplier + sessionPop * 30; 
+
+        document.getElementById('incomeInfo').innerHTML = `
+            İnşaat Bitti! Bu binayı ne yapmak istersiniz?<br>
+            <strong style="color:#2ecc71;">Aylık Kira Geliri:</strong> 💰 ${Math.round(rentValue).toLocaleString()}<br>
+            <strong style="color:#e74c3c;">Satış Geliri:</strong> Anında 💰 ${Math.round(sellValue).toLocaleString()}
+        `;
+
+        document.getElementById('msgOptions').innerHTML = `
+            <button class="msg-btn btn-rent" onclick="finalizeBuilding('RENTED', ${rentValue})">🏠 KİRALA</button>
+            <button class="msg-btn btn-sell" onclick="finalizeBuilding('SOLD', ${sellValue})">💰 SAT</button>
+            <button class="msg-btn btn-return" onclick="returnToCity()">ŞEHRE DÖN (İptal)</button>
+        `;
+
+        document.getElementById('msgOverlay').style.display = 'flex';
+    }
+
+    function finalizeBuilding(action, value) {
+        if (activeSlot === -1) { 
+            returnToCity();
+            return;
+        }
+
+        const finalPop = Math.ceil(sessionPop * getCurrentStyleObject().popMultiplier);
+
+        if (action === 'SOLD') {
+            cityMeta.cash += Math.round(value);
+            cityData[activeSlot] = null; 
+            alert(`Bina başarıyla satıldı! 💰 ${Math.round(value).toLocaleString()} kazanıldı.`);
+        } else if (action === 'RENTED') {
+            const style = getCurrentStyleObject();
+            cityData[activeSlot] = {
+                floors: score, 
+                pop: finalPop, 
+                color: style.color, 
+                status: 'RENTED', 
+                styleId: style.id 
+            };
+            alert(`Bina kiraya verildi! Kira geliri artık her ay (2 dakikada bir) otomatik olarak eklenecek.`);
+        }
+
+        save();
+        returnToCity();
+    }
+
+
+    function returnToCity() {
+        if (gameAnimationFrameId) cancelAnimationFrame(gameAnimationFrameId);
+        document.getElementById('gameScreen').classList.remove('active');
+        document.getElementById('dashboard').classList.add('active'); 
+        initDashboard(); 
+        stopAllAudio();
+    }
+
+    // Input (Aynı Kaldı)
+    function input() { 
+        if(actx.state==='suspended') actx.resume(); 
+        if(state==='PLAY' && current && !current.drop) current.drop=true; 
+    }
+    window.onmousedown = (e) => { if(e.target.id==='gameCanvas') input(); };
+    window.onkeydown = (e) => { if(e.code==='Space') input(); };
+
+    // Ses Ayarlarını Başlat (Aynı Kaldı)
+    function initVolume() {
+        document.getElementById('gameVolume').value = volume.game * 100;
+        document.getElementById('ambientVolume').value = volume.ambient * 100;
+        updateVolume('game', volume.game * 100);
+        updateVolume('ambient', volume.ambient * 100);
+    }
+    
+    // Başlangıç: Tüm sayfa yüklendikten sonra paneli başlat
+    window.onload = function() {
+        initDashboard();
+        initVolume();
+    }
+</script>
+
+</body></html>
